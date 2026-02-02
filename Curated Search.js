@@ -477,46 +477,23 @@
         style.id = 'ndle-styles';
         style.textContent = `
             #ndle-ui {
-                position: fixed !important;
-                bottom: 20px !important;
-                right: 20px !important;
-                width: 280px !important;
-                background: rgba(255, 255, 255, 0) !important;
-                border-radius: 16px !important;
-                box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-                z-index: 2147483647 !important;
-                border: 1px solid rgba(229, 231, 235, 0.8) !important;
-                overflow: hidden !important;
-                backdrop-filter: blur(5px)!important;
-                -webkit-backdrop-filter: blur(5px)!important;
-                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-            }
-
-            #ndle-ui::before {
-                content: '' !important;
-                position: absolute !important;
-                top: 0 !important;
-                left: 0 !important;
-                right: 0 !important;
-                bottom: 0 !important;
-                background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 255, 255, 0.9) 100%) !important;
-                border-radius: 16px !important;
-                z-index: -1 !important;
+                position: fixed;
+                bottom: 24px;
+                right: 24px;
+                width: 190px;
+                background: white;
+                border-radius: 16px;
+                box-shadow: 0 12px 32px rgba(0,0,0,.18);
+                font-family: system-ui, sans-serif;
+                z-index: 9999;
             }
 
             .ndle-header {
-                background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%) !important;
-                color: white !important;
-                padding: 16px !important;
-                font-size: 16px !important;
-                font-weight: 600 !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: space-between !important;
-                backdrop-filter: blur(10px) !important;
-                -webkit-backdrop-filter: blur(10px) !important;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+                background: #10b981;
+                color: white;
+                padding: 10px;
+                font-weight: 600;
+                text-align: center;
             }
 
             .ndle-toggle {
@@ -566,20 +543,10 @@
             }
 
             .ndle-footer {
-                padding: 14px 16px !important;
-                text-align: center !important;
-                background: rgba(249, 250, 251, 0.9) !important;
-                font-size: 12px !important;
-                color: #4b5563 !important;
-                backdrop-filter: blur(10px) !important;
-                -webkit-backdrop-filter: blur(10px) !important;
-                border-top: 1px solid rgba(243, 244, 246, 0.8) !important;
-            }
-
-            .ndle-hint {
-                font-size: 10px !important;
-                color: #9ca3af !important;
-                margin-top: 4px !important;
+                text-align: center;
+                font-size: 11px;
+                color: #6b7280;
+                padding-bottom: 10px;
             }
 
             .ndle-switch {
