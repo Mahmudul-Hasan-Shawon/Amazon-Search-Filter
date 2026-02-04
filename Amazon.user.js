@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         NDLE – Amazon Curated Results with Independent Toggles
 // @namespace    ndle.amazon.ui.toggles
-// @version      2.8
-// @description  NDLE: Filter Budget / Value / Premium independently with toggles
+// @version      2.9.2
+// @description  NDLE: Filter Budget / Value / Premium independently with toggles (Smooth Animations, Updated Banner)
 // @match        https://www.amazon.com/s*
 // @run-at       document-idle
 // @grant        none
@@ -11,6 +11,13 @@
 (function () {
     'use strict';
 
+    // ---------------- LOAD FONTS ----------------
+    // Inject Inter font
+    const fontLink = document.createElement('link');
+    fontLink.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap';
+    fontLink.rel = 'stylesheet';
+    document.head.appendChild(fontLink);
+
     // ---------------- STATE ----------------
     let toggleBudget = true;
     let toggleValue = true;
@@ -18,7 +25,7 @@
     let panelVisible = false;
 
     let curatedResults = [];
-    let originalDisplay = new Map();
+    let originalDisplay = new Map(); // We might not need this if we use classes for animation
     let checkInterval = null;
     let uiInjected = false;
 
@@ -240,11 +247,42 @@
 
         curate();
 
+        // We use a Set for O(1) lookup
+        const curatedSet = new Set(curatedResults);
+
         results.forEach(r => {
-            if (!originalDisplay.has(r)) {
-                originalDisplay.set(r, r.style.display);
+            const isCurated = curatedSet.has(r);
+
+            // Initialize animation state if needed
+            if (!r.classList.contains('ndle-processed')) {
+                r.classList.add('ndle-processed');
+                // Set initial opacity to 1 for existing items so they don't flash
+                r.style.transition = 'opacity 0.4s ease, transform 0.4s ease, max-height 0.4s ease';
+                r.style.transformOrigin = 'top center';
             }
-            r.style.display = curatedResults.includes(r) ? '' : 'none';
+
+            if (isCurated) {
+                // Show item
+                r.style.opacity = '1';
+                r.style.transform = 'scale(1)';
+                r.style.maxHeight = 'none'; // Reset max-height
+
+                // Use a slight delay to ensure display:block is set before opacity transition
+                requestAnimationFrame(() => {
+                    r.style.display = '';
+                });
+            } else {
+                // Hide item with animation
+                r.style.opacity = '0';
+                r.style.transform = 'scale(0.95)';
+
+                // Wait for animation to finish before setting display: none
+                setTimeout(() => {
+                    // Check again in case toggle changed during animation
+                    if (curatedSet.has(r)) return;
+                    r.style.display = 'none';
+                }, 400); // Match transition duration
+            }
         });
 
         // Only show banner if NO badges were found (showing first 3 results)
@@ -260,72 +298,116 @@
 
     // ---------------- BANNER ----------------
     function injectBanner(total) {
-        removeBanner();
+        // If banner exists, just update text to avoid flickering
+        const existingBanner = document.getElementById('ndle-banner');
+        if (existingBanner) {
+            // Check if total has changed
+            if (existingBanner.dataset.total !== total.toString()) {
+                existingBanner.dataset.total = total;
+                existingBanner.querySelector('#ndle-banner-text').innerHTML = `No badges found, showing top 3 of <strong>${total}</strong>`;
+            }
+            return;
+        }
+
         const banner = document.createElement('div');
         banner.id = 'ndle-banner';
+        banner.dataset.total = total; // Store total for updates
         banner.innerHTML = `
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    🛡️ <strong>NDLE Smart Selection:</strong>
-                    No badges found, showing top 3 products
+            <div style="display: flex; justify-content: center; align-items: center; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <span>🛡️</span>
+                    <strong style="font-size: 14px;">NDLE Smart Selection:</strong>
                 </div>
-                <div style="font-size: 12px; color: #4b5563;">
-                    ${curatedResults.length} of ${total} shown
+                <div id="ndle-banner-text" style="font-size: 13px; font-weight: 500; opacity: 0.8;">
+                    No badges found, showing top 3 of <strong>${total}</strong>
                 </div>
             </div>
         `;
 
+        // --- UPDATED STYLES: Centered, Rounded, Inter Font ---
         banner.style.cssText = `
-            background: linear-gradient(135deg, rgba(236, 253, 245, 0.9) 0%, rgba(209, 250, 229, 0.9) 100%) !important;
-            color: #065f46 !important;
-            padding: 16px 24px !important;
-            margin: 20px 0 !important;
-            border-radius: 12px !important;
-            border: 2px solid #10b981 !important;
+            font-family: 'Inter', sans-serif !important;
+            background: linear-gradient(135deg, rgba(255, 251, 235, 0.95) 0%, rgba(254, 243, 199, 0.95) 100%) !important;
+            color: #92400e !important;
+            padding: 12px 24px !important;
+            margin: 20px auto !important; /* Centered with auto margin */
+            width: fit-content !important; /* Width fits content */
+            max-width: 90% !important; /* Prevent overflow on small screens */
+            border-radius: 50px !important; /* Fully rounded */
+            border: 2px solid #f59e0b !important;
             font-size: 14px !important;
             font-weight: 500 !important;
-            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15) !important;
+            box-shadow: 0 8px 20px rgba(245, 158, 11, 0.25) !important;
             z-index: 2147483646 !important;
             position: relative !important;
-            backdrop-filter: blur(8px) !important;
-            -webkit-backdrop-filter: blur(8px) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            display: flex !important;
+            justify-content: center !important;
+            animation: ndleFadeIn 0.5s ease forwards !important;
         `;
 
+        // Inject animation keyframes if not already present
+        if (!document.getElementById('ndle-banner-anim')) {
+            const animStyle = document.createElement('style');
+            animStyle.id = 'ndle-banner-anim';
+            animStyle.textContent = `
+                @keyframes ndleFadeIn {
+                    from { opacity: 0; transform: translateY(-10px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+            `;
+            document.head.appendChild(animStyle);
+        }
+
+        // Insert into a container that supports centering
         const slot = document.querySelector('.s-main-slot, .s-search-results, #search');
         if (slot) {
-            slot.insertBefore(banner, slot.firstChild);
+            // Wrap banner in a div to ensure centering works regardless of slot styling
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.justifyContent = 'center';
+            wrapper.style.width = '100%';
+            wrapper.appendChild(banner);
+            slot.insertBefore(wrapper, slot.firstChild);
         } else {
-            // Fallback: insert at top of body
+            // Fallback
             document.body.insertBefore(banner, document.body.firstChild);
         }
     }
 
     function removeBanner() {
         const b = document.getElementById('ndle-banner');
-        if (b) b.remove();
+        // Also remove the wrapper if it exists
+        if (b && b.parentElement && b.parentElement.style.display === 'flex') {
+            b.parentElement.remove();
+        } else if (b) {
+            b.remove();
+        }
     }
 
     // ---------------- TOGGLE BUTTON ----------------
     function createToggleButton() {
         const toggleBtn = document.createElement('button');
         toggleBtn.id = 'ndle-toggle-btn';
-        toggleBtn.innerHTML = '🛡️ NDLE';
+        toggleBtn.innerHTML = 'NDLE';
         toggleBtn.title = 'Toggle NDLE Curator Panel';
 
         toggleBtn.style.cssText = `
+            font-family: 'Inter', sans-serif !important;
             position: fixed !important;
             bottom: 20px !important;
             right: 20px !important;
             width: 60px !important;
             height: 60px !important;
             border-radius: 50% !important;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
             color: white !important;
             border: none !important;
             font-size: 12px !important;
             font-weight: 600 !important;
             cursor: pointer !important;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.4) !important;
+            box-shadow: 0 4px 20px rgba(245, 158, 11, 0.5) !important;
             z-index: 2147483646 !important;
             display: flex !important;
             align-items: center !important;
@@ -333,18 +415,18 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
             backdrop-filter: blur(10px) !important;
             -webkit-backdrop-filter: blur(10px) !important;
-            border: 2px solid rgba(255, 255, 255, 0.3) !important;
+            border: 2px solid rgb(255, 255, 255) !important;
         `;
 
         toggleBtn.addEventListener('click', togglePanel);
         toggleBtn.addEventListener('mouseenter', () => {
             toggleBtn.style.transform = 'scale(1.1)';
-            toggleBtn.style.boxShadow = '0 6px 25px rgba(16, 185, 129, 0.6)';
+            toggleBtn.style.boxShadow = '0 6px 25px rgba(245, 158, 11, 0.6)';
         });
         toggleBtn.addEventListener('mouseleave', () => {
             if (!panelVisible) {
                 toggleBtn.style.transform = 'scale(1)';
-                toggleBtn.style.boxShadow = '0 4px 20px rgba(16, 185, 129, 0.4)';
+                toggleBtn.style.boxShadow = '0 4px 20px rgba(245, 158, 11, 0.4)';
             }
         });
 
@@ -398,7 +480,7 @@
             toggleBtn.style.opacity = '1';
             toggleBtn.style.transform = 'scale(1)';
             toggleBtn.style.pointerEvents = 'auto';
-            toggleBtn.style.boxShadow = '0 4px 20px rgba(16, 185, 129, 0.4)';
+            toggleBtn.style.boxShadow = '0 4px 20px rgba(245, 158, 11, 0.4)';
         }, 300);
     }
 
@@ -431,7 +513,7 @@
         panel.innerHTML = `
             <div class="ndle-header">
                 <span>🛡️ NDLE Curator</span>
-                <button id="ndle-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;margin-left:auto;">×</button>
+                <button id="ndle-close" style="background:none;border:none;color:white;font-size:20px;cursor:pointer;padding:0;margin-left:auto;font-family:'Inter',sans-serif;">×</button>
             </div>
             <div class="ndle-toggle">
                 <div class="ndle-toggle-label">
@@ -472,28 +554,50 @@
             </div>
         `;
 
-        // Add styles with backdrop blur
         const style = document.createElement('style');
         style.id = 'ndle-styles';
         style.textContent = `
             #ndle-ui {
-                position: fixed;
-                bottom: 24px;
-                right: 24px;
-                width: 190px;
-                background: white;
-                border-radius: 16px;
-                box-shadow: 0 12px 32px rgba(0,0,0,.18);
-                font-family: system-ui, sans-serif;
-                z-index: 9999;
+                font-family: 'Inter', sans-serif !important;
+                position: fixed !important;
+                bottom: 20px !important;
+                right: 20px !important;
+                width: 280px !important;
+                background: rgba(255, 255, 255, 0) !important;
+                border-radius: 16px !important;
+                box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;
+                z-index: 2147483647 !important;
+                border: 1px solid rgba(251, 191, 36, 0.5) !important;
+                overflow: hidden !important;
+                backdrop-filter: blur(15px)!important;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            }
+
+            #ndle-ui::before {
+                content: '' !important;
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.7) 0%, rgba(255, 251, 235, 0.8) 100%) !important;
+                border-radius: 16px !important;
+                z-index: -1 !important;
             }
 
             .ndle-header {
-                background: #10b981;
-                color: white;
-                padding: 10px;
-                font-weight: 600;
-                text-align: center;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+                color: white !important;
+                padding: 12px !important;
+                font-size: 16px !important;
+                font-weight: 600 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: space-between !important;
+                backdrop-filter: blur(10px) !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+                box-shadow: 0 4px 10px rgba(245, 158, 11, 0.3) !important;
             }
 
             .ndle-toggle {
@@ -501,12 +605,12 @@
                 justify-content: space-between !important;
                 align-items: center !important;
                 padding: 14px 16px !important;
-                border-bottom: 1px solid rgba(243, 244, 246, 0.8) !important;
+                border-bottom: 1px solid rgba(254, 243, 199, 0.8) !important;
                 transition: all 0.2s ease !important;
             }
 
             .ndle-toggle:hover {
-                background-color: rgba(249, 250, 251, 0.8) !important;
+                background-color: rgba(255, 251, 235, 0.8) !important;
             }
 
             .ndle-toggle-label {
@@ -528,8 +632,8 @@
             }
 
             .ndle-count {
-                background: rgba(243, 244, 246, 0.9) !important;
-                color: #6b7280 !important;
+                background: rgba(254, 243, 199, 0.9) !important;
+                color: #92400e !important;
                 padding: 4px 10px !important;
                 border-radius: 12px !important;
                 font-size: 11px !important;
@@ -538,15 +642,24 @@
                 text-align: center !important;
                 backdrop-filter: blur(10px) !important;
                 -webkit-backdrop-filter: blur(10px) !important;
-                border: 1px solid rgba(209, 213, 219, 0.6) !important;
+                border: 1px solid rgba(245, 158, 11, 0.5) !important;
                 box-shadow: inset 0 1px 2px rgba(0,0,0,0.05) !important;
             }
 
             .ndle-footer {
-                text-align: center;
-                font-size: 11px;
-                color: #6b7280;
-                padding-bottom: 10px;
+                padding: 14px 16px !important;
+                text-align: center !important;
+                background: rgba(255, 251, 235, 0.3) !important;
+                font-size:  12px !important;
+                color: #78350f !important;
+                -webkit-backdrop-filter: blur(10px) !important;
+                border-top: 1px solid rgba(254, 243, 199, 0.8) !important;
+            }
+
+            .ndle-hint {
+                font-size: 10px !important;
+                color: #d97706 !important;
+                margin-top: 4px !important;
             }
 
             .ndle-switch {
@@ -569,7 +682,7 @@
                 left: 0 !important;
                 right: 0 !important;
                 bottom: 0 !important;
-                background-color: rgba(209, 213, 219, 0.9) !important;
+                background-color: #d1d5db !important;
                 border-radius: 34px !important;
                 transition: .4s !important;
                 backdrop-filter: blur(10px) !important;
@@ -595,7 +708,7 @@
             }
 
             input:checked + .slider {
-                background: linear-gradient(135deg, rgba(16, 185, 129, 0.95) 0%, rgba(5, 150, 105, 0.95) 100%) !important;
+                background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
             }
 
             input:checked + .slider:before {
@@ -750,7 +863,7 @@
 
         // Check for AJAX navigation (Amazon uses this)
         const originalPushState = history.pushState;
-        history.pushState = function() {
+        history.pushState = function () {
             originalPushState.apply(this, arguments);
 
             // Reset state for new page
